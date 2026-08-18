@@ -497,8 +497,20 @@
   // ---------------------------------------------------------------------
   // Alerta visual
   // ---------------------------------------------------------------------
+  let alertTimer = null;
+
+  function hideAlert() {
+    clearTimeout(alertTimer);
+    alertTimer = null;
+    $('alert-overlay').classList.remove('show');
+    stopSiren();
+  }
+
   function showAlert(ev) {
     currentAlert = ev;
+    // fecha sozinho após 5s se ninguém clicar em "OK, visto!"
+    clearTimeout(alertTimer);
+    alertTimer = setTimeout(hideAlert, 5000);
     const name = ev.leadName || `Lead #${ev.leadId}`;
     $('alert-lead').textContent = name;
     $('alert-broker').textContent = ev.responsibleUserName ? `Corretor: ${ev.responsibleUserName}` : '';
@@ -519,10 +531,7 @@
     }
   }
 
-  $('alert-dismiss').addEventListener('click', () => {
-    $('alert-overlay').classList.remove('show');
-    stopSiren();
-  });
+  $('alert-dismiss').addEventListener('click', hideAlert);
 
   // ---------------------------------------------------------------------
   // Estado + tempo real

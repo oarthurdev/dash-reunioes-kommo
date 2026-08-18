@@ -569,7 +569,10 @@ ul.rows { list-style: none; display: flex; flex-direction: column; gap: 9px; pad
 .quote b { color: var(--blue-2); }
 
 /* ================================ rodapé ================================ */
-.foot { display: flex; justify-content: center; padding: 18px 0 6px; }
+.foot { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 18px 0 10px; }
+.foot-credit { font-size: 11px; color: var(--ink-3); }
+.foot-credit a { color: var(--blue-2); font-weight: 700; text-decoration: none; }
+.foot-credit a:hover { text-decoration: underline; text-shadow: 0 0 12px var(--blue-glow); }
 .foot-chips {
   display: flex; align-items: center; gap: 0;
   background: var(--panel-2);
