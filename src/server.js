@@ -149,6 +149,8 @@ app.get('/api/meta', requireAuth, async (req, res) => {
     label: req.account.label,
     enriched: client.enabled,
     meetingStatusIds: req.account.meetingStatusIds,
+    // Corretores da conta (para o ranking listar também quem está zerado).
+    users: client.cache.users ? [...client.cache.users].map(([id, name]) => ({ id, name })) : [],
   });
 });
 

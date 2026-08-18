@@ -3,12 +3,15 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Dash Reunião</title>
+  <title>Placar de Reuniões</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <header>
-    <h1 id="account-label">Dash Reunião</h1>
+  <header class="top">
+    <div class="brand">
+      <div class="eyebrow">Placar ao vivo</div>
+      <h1 id="account-label">Reuniões</h1>
+    </div>
     <span class="pill"><span class="dot" id="conn-dot"></span><span id="conn-text">conectando…</span></span>
     <span class="spacer"></span>
     <button class="btn ghost" id="sound-btn">🔇 Ativar som</button>
@@ -19,26 +22,59 @@
   </header>
 
   <main>
-    <div class="stats">
-      <div class="stat meeting"><div class="value" id="stat-today">0</div><div class="label">Reuniões hoje</div></div>
-      <div class="stat"><div class="value" id="stat-week">0</div><div class="label">Reuniões últimos 7 dias</div></div>
-      <div class="stat"><div class="value" id="stat-events">0</div><div class="label">Movimentações recentes</div></div>
+    <div class="controls">
+      <div class="seg" id="period-seg" role="tablist" aria-label="Período">
+        <button data-period="today" class="on">Hoje</button>
+        <button data-period="7d">7 dias</button>
+        <button data-period="30d">30 dias</button>
+      </div>
+      <div class="stats">
+        <div class="stat panel">
+          <span class="label">Reuniões no período</span>
+          <span class="value accent" id="stat-total">0</span>
+        </div>
+        <div class="stat panel">
+          <span class="label">Líder</span>
+          <span class="value" id="stat-leader">—</span>
+          <span class="sub" id="stat-leader-sub"></span>
+        </div>
+        <div class="stat panel">
+          <span class="label">Última reunião</span>
+          <span class="value" id="stat-last">—</span>
+          <span class="sub" id="stat-last-sub"></span>
+        </div>
+      </div>
     </div>
 
-    <div class="section-title">
-      <h2>Atividade em tempo real</h2>
-      <span class="muted" id="enrich-note"></span>
-    </div>
-    <ul class="feed" id="feed"></ul>
-    <div class="empty" id="empty" hidden>Nenhum evento recebido ainda. Configure o webhook na Kommo apontando para <code>/webhook/kommo</code>.</div>
+    <section class="board">
+      <div class="panel">
+        <div class="podium" id="podium"></div>
+        <div class="ranking">
+          <div class="rank-head">
+            <h2>Ranking de corretores</h2>
+            <span class="muted" id="enrich-note"></span>
+          </div>
+          <ul class="rank-list" id="rank-list"></ul>
+          <div class="empty" id="rank-empty" hidden>Nenhuma reunião no período ainda. O placar abre com a primeira! 🏁</div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="feed panel">
+      <div class="feed-head">◉ Atividade ao vivo</div>
+      <ul class="feed-list" id="feed"></ul>
+      <div class="empty" id="feed-empty" hidden>Nenhum evento recebido ainda.<br>Configure o webhook na Kommo para <code>/webhook/kommo</code>.</div>
+    </aside>
   </main>
 
   <div id="alert-overlay">
     <div class="alert-box">
-      <div class="icon">🗓️🔔</div>
+      <div class="kicker">/// Reunião agendada ///</div>
       <h2>Lead movido para Reunião!</h2>
+      <div class="avatar alert-avatar" id="alert-avatar">?</div>
       <div class="lead" id="alert-lead"></div>
       <div class="broker" id="alert-broker"></div>
+      <div class="tally" id="alert-tally"></div>
       <button class="btn" id="alert-dismiss">OK, visto!</button>
     </div>
   </div>
