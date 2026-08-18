@@ -27,6 +27,8 @@ Copie `.env.example` para `.env` e configure (já existe um `.env` inicial):
 - `SESSION_SECRET` — string longa e aleatória.
 - `DICASA_KOMMO_TOKEN` / `MAZI_KOMMO_TOKEN` — token de longa duração da Kommo (Configurações → Integrações → sua integração → token). **Opcional, mas recomendado**: com ele o dashboard mostra o *nome* do status e do corretor, e detecta automaticamente qualquer status cujo nome contenha "reuni" (Reunião, Reunião agendada, …).
 - `DICASA_MEETING_STATUS_IDS` / `MAZI_MEETING_STATUS_IDS` — alternativa manual: IDs dos status de reunião, separados por vírgula (ex.: `42625614,42625617`). Têm prioridade sobre a detecção automática.
+- `DICASA_DONE_STATUS_IDS` / `MAZI_DONE_STATUS_IDS` — IDs dos status de reunião **realizada** (barra verde do placar). Vazio = detecta pelo nome do status ("reuni" + "realizad").
+- `META_CORRETOR` (padrão 25) e `META_TIME` (padrão 20) — metas mensais exibidas no placar (por corretor e do time); aceitam versão por conta (`DICASA_META_CORRETOR`, etc.).
 - `WEBHOOK_SECRET` — se definido, o webhook exige `?secret=...` na URL.
 
 Iniciar:
