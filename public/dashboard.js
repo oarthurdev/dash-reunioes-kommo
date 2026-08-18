@@ -1,8 +1,13 @@
 (() => {
-  // Mantém ?account= (uso local sem subdomínio) em todas as chamadas.
+  // Mantém ?account= (uso local sem subdomínio) e monta query strings extras.
   const params = new URLSearchParams(location.search);
-  const accountQS = params.get('account') ? `?account=${encodeURIComponent(params.get('account'))}` : '';
-  const api = (path) => `${path}${accountQS}`;
+  const api = (path, extra) => {
+    const p = new URLSearchParams();
+    if (params.get('account')) p.set('account', params.get('account'));
+    if (extra) for (const [k, v] of Object.entries(extra)) p.set(k, v);
+    const qs = p.toString();
+    return qs ? `${path}?${qs}` : path;
+  };
 
   const $ = (id) => document.getElementById(id);
   document.getElementById('logout-form').action = api('/logout');
@@ -12,6 +17,16 @@
   let knownUsers = [];
   let metaCorretor = 25;
   let metaTime = 20;
+
+  // Navegação de meses: null = mês atual (ao vivo); "YYYY-MM" = histórico.
+  let monthsList = [];
+  let viewMonth = null;
+  const historyCache = new Map();
+
+  function currentYm() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }
 
   // ---------------------------------------------------------------------
   // Som de alerta (campainha WebAudio + locução gravada + voz do navegador)
@@ -159,7 +174,7 @@
   }
 
   // ---------------------------------------------------------------------
-  // Classificação e agregação (mês atual)
+  // Classificação e agregação (mês atual, ao vivo)
   // ---------------------------------------------------------------------
   function norm(s) {
     return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -252,6 +267,69 @@
   }
 
   // ---------------------------------------------------------------------
+  // Navegação de meses (reset mensal + histórico)
+  // ---------------------------------------------------------------------
+  function fmtMonthLabel(ym) {
+    const [y, m] = ym.split('-').map(Number);
+    return new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(new Date(y, m - 1, 1));
+  }
+
+  function updateMonthNav() {
+    if (!monthsList.includes(currentYm())) monthsList.unshift(currentYm());
+    const ym = viewMonth || currentYm();
+    $('month-label').textContent = fmtMonthLabel(ym);
+    const idx = monthsList.indexOf(ym);
+    $('month-prev').disabled = idx < 0 || idx >= monthsList.length - 1;
+    $('month-next').disabled = idx <= 0;
+    $('mode-badge').textContent = viewMonth ? 'HISTÓRICO' : 'AO VIVO';
+    $('mode-badge').classList.toggle('hist', Boolean(viewMonth));
+    $('month-now').hidden = !viewMonth;
+  }
+
+  async function selectMonth(ym) {
+    if (!ym || ym === currentYm()) {
+      viewMonth = null;
+      updateMonthNav();
+      renderBoard();
+      return;
+    }
+    viewMonth = ym;
+    if (!historyCache.has(ym)) {
+      try {
+        const r = await fetch(api('/api/ranking', { month: ym }));
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const d = await r.json();
+        const brokers = d.brokers.sort(
+          (a, b) =>
+            b.agendadas - a.agendadas ||
+            b.realizadas - a.realizadas ||
+            a.name.localeCompare(b.name, 'pt-BR')
+        );
+        historyCache.set(ym, {
+          brokers,
+          totAgendadas: brokers.reduce((s, b) => s + b.agendadas, 0),
+          totRealizadas: brokers.reduce((s, b) => s + b.realizadas, 0),
+        });
+      } catch (e) {
+        console.error('Falha ao carregar histórico:', e);
+        historyCache.set(ym, { brokers: [], totAgendadas: 0, totRealizadas: 0 });
+      }
+    }
+    updateMonthNav();
+    renderBoard();
+  }
+
+  $('month-prev').addEventListener('click', () => {
+    const idx = monthsList.indexOf(viewMonth || currentYm());
+    if (idx >= 0 && idx < monthsList.length - 1) selectMonth(monthsList[idx + 1]);
+  });
+  $('month-next').addEventListener('click', () => {
+    const idx = monthsList.indexOf(viewMonth || currentYm());
+    if (idx > 0) selectMonth(monthsList[idx - 1]);
+  });
+  $('month-now').addEventListener('click', () => selectMonth(null));
+
+  // ---------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------
   let lastBump = null;
@@ -259,8 +337,7 @@
   function renderAxis() {
     const axis = $('axis');
     axis.innerHTML = '';
-    const stepCount = 5;
-    const step = Math.max(1, Math.round(metaCorretor / stepCount));
+    const step = Math.max(1, Math.round(metaCorretor / 5));
     for (let v = 0; v < metaCorretor; v += step) {
       const tick = document.createElement('span');
       tick.className = 'tick';
@@ -271,8 +348,15 @@
   }
 
   function renderBoard() {
-    const { brokers, totAgendadas, totRealizadas } = aggregate();
+    if (viewMonth) {
+      const cached = historyCache.get(viewMonth);
+      if (cached) renderData(cached, false);
+      return;
+    }
+    renderData(aggregate(), true);
+  }
 
+  function renderData({ brokers, totAgendadas, totRealizadas }, live) {
     // KPIs do topo
     $('meta-time').textContent = metaTime;
     const pct = Math.min(100, Math.round((totAgendadas / Math.max(1, metaTime)) * 100));
@@ -287,7 +371,9 @@
 
     // Card "Bora!"
     const hit = totAgendadas >= metaTime;
-    $('bora-sub').textContent = hit ? 'O time está batendo metas!' : 'Rumo à meta do time!';
+    $('bora-sub').textContent = live
+      ? (hit ? 'O time está batendo metas!' : 'Rumo à meta do time!')
+      : (hit ? 'Meta batida nesse mês! 🏆' : `Fechamento de ${fmtMonthLabel(viewMonth)}`);
 
     // Ranking
     const list = $('rank-list');
@@ -301,7 +387,6 @@
       li.className = 'row' + (active && i < 3 ? ` r${i + 1}` : '') + (active ? '' : ' zero');
       li.dataset.key = b.key;
 
-      // posição
       const pos = document.createElement('span');
       pos.className = 'pos';
       if (active && i < 3) {
@@ -312,7 +397,6 @@
       }
       pos.append(document.createTextNode(active ? `${i + 1}º` : '·'));
 
-      // corretor
       const who = document.createElement('div');
       who.className = 'who';
       const name = document.createElement('span');
@@ -320,11 +404,10 @@
       name.textContent = b.name;
       who.append(makeAvatar(b.key, b.name), name);
 
-      // barras
       const bars = document.createElement('div');
       bars.className = 'bars';
-      const stepPx = Math.max(1, Math.round(metaCorretor / 5));
-      for (let v = stepPx; v < metaCorretor; v += stepPx) {
+      const step = Math.max(1, Math.round(metaCorretor / 5));
+      for (let v = step; v < metaCorretor; v += step) {
         const gl = document.createElement('span');
         gl.className = 'grid-line';
         gl.style.left = `${(v / metaCorretor) * 100}%`;
@@ -353,22 +436,24 @@
       };
       bars.append(mk('agendadas', b.agendadas, i === 0 && active), mk('realizadas', b.realizadas, false));
 
-      // números "x / meta"
       const nums = document.createElement('div');
       nums.className = 'nums';
       nums.innerHTML =
         `<div class="a">${b.agendadas} <small>/ ${metaCorretor}</small></div>` +
         `<div class="r">${b.realizadas} <small>/ ${metaCorretor}</small></div>`;
 
-      // sequência de dias
-      const st = streakDays(b.key);
       const streak = document.createElement('div');
-      streak.className = 'streak' + (st > 0 ? '' : ' off');
-      streak.innerHTML =
-        `<span class="fire">🔥</span><span><b>${st > 0 ? st : '—'} ${st === 1 ? 'dia' : 'dias'}</b><small>${st === 1 ? 'seguido' : 'seguidos'}</small></span>`;
+      if (live) {
+        const st = streakDays(b.key);
+        streak.className = 'streak' + (st > 0 ? '' : ' off');
+        streak.innerHTML =
+          `<span class="fire">🔥</span><span><b>${st > 0 ? st : '—'} ${st === 1 ? 'dia' : 'dias'}</b><small>${st === 1 ? 'seguido' : 'seguidos'}</small></span>`;
+      } else {
+        streak.className = 'streak off';
+      }
 
       li.append(pos, who, bars, nums, streak);
-      if (b.key === lastBump) {
+      if (live && b.key === lastBump) {
         li.classList.add('bump');
         li.addEventListener('animationend', () => li.classList.remove('bump'), { once: true });
       }
@@ -376,17 +461,22 @@
     });
 
     // FLIP: anima as linhas até a nova posição
-    for (const row of list.children) {
-      const before = oldPos.get(row.dataset.key);
-      if (before == null) continue;
-      const delta = before - row.getBoundingClientRect().top;
-      if (!delta) continue;
-      row.animate(
-        [{ transform: `translateY(${delta}px)` }, { transform: 'translateY(0)' }],
-        { duration: 500, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' }
-      );
+    if (live) {
+      for (const row of list.children) {
+        const before = oldPos.get(row.dataset.key);
+        if (before == null) continue;
+        const delta = before - row.getBoundingClientRect().top;
+        if (!delta) continue;
+        row.animate(
+          [{ transform: `translateY(${delta}px)` }, { transform: 'translateY(0)' }],
+          { duration: 500, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' }
+        );
+      }
     }
 
+    $('rank-empty').textContent = live
+      ? 'Nenhuma reunião registrada ainda. O placar abre com a primeira! 🏁'
+      : 'Nenhuma reunião registrada nesse mês.';
     $('rank-empty').hidden = brokers.length > 0;
   }
 
@@ -442,23 +532,31 @@
     seen.add(ev.id);
     events.unshift(ev);
     events.sort((a, b) => b.ts - a.ts);
-    if (ev.isMeeting || isRealizada(ev)) lastBump = brokerKey(ev);
+    if (ev.isMeeting || isRealizada(ev)) {
+      lastBump = brokerKey(ev);
+      // evento novo invalida o cache do mês correspondente
+      const d = new Date(ev.ts);
+      historyCache.delete(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    }
     renderBoard();
     if (alert && isAgendada(ev)) showAlert(ev);
   }
 
   async function loadInitial() {
-    const [meta, data] = await Promise.all([
+    const [meta, data, months] = await Promise.all([
       fetch(api('/api/meta')).then((r) => (r.ok ? r.json() : Promise.reject(r.status))),
       fetch(api('/api/events')).then((r) => (r.ok ? r.json() : Promise.reject(r.status))),
+      fetch(api('/api/months')).then((r) => (r.ok ? r.json() : Promise.reject(r.status))),
     ]);
     $('account-label').textContent = meta.label;
     document.title = `${meta.label} — Dashboard de Reuniões`;
     knownUsers = meta.users || [];
     metaCorretor = meta.metaCorretor || 25;
     metaTime = meta.metaTime || 20;
+    monthsList = months.months || [];
     $('meta-corretor').textContent = metaCorretor;
     renderAxis();
+    updateMonthNav();
     for (const ev of data.events) addEvent(ev);
     renderBoard();
   }
@@ -489,8 +587,11 @@
     document.body.addEventListener('click', () => Notification.requestPermission(), { once: true });
   }
 
-  // atualiza streaks/virada de dia sem depender de evento novo
-  setInterval(renderBoard, 60000);
+  // atualiza streaks e a virada de dia/mês sem depender de evento novo
+  setInterval(() => {
+    updateMonthNav();
+    renderBoard();
+  }, 60000);
 
   loadInitial()
     .then(connectSSE)

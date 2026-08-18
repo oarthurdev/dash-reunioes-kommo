@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const express = require('express');
 
 const config = require('./config');
-const { EventStore } = require('./store');
+const { EventStore, MonthlyStats } = require('./store');
 const { KommoClient } = require('./kommo');
 const auth = require('./auth');
 
@@ -21,13 +21,25 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 // Estado por conta
 // ---------------------------------------------------------------------------
 const stores = new Map();
+const statsStores = new Map();
 const kommoClients = new Map();
 const sseClients = new Map(); // accountKey -> Set<res>
 
 for (const [key, account] of config.accounts) {
-  stores.set(key, new EventStore(key, config.maxEventsPerAccount));
+  const store = new EventStore(key, config.maxEventsPerAccount);
+  const stats = new MonthlyStats(key);
+  // primeira execução com histórico novo: reconstrói o resumo mensal a partir
+  // dos eventos já gravados
+  if (!stats.loaded) stats.rebuildFrom(store.events);
+  stores.set(key, store);
+  statsStores.set(key, stats);
   kommoClients.set(key, new KommoClient(account));
   sseClients.set(key, new Set());
+}
+
+function currentYm() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -154,6 +166,32 @@ app.get('/api/meta', requireAuth, async (req, res) => {
     // Corretores da conta (para o ranking listar também quem está zerado).
     users: client.cache.users ? [...client.cache.users].map(([id, name]) => ({ id, name })) : [],
   });
+});
+
+// Meses com dados no histórico (o atual sempre incluso), do mais novo ao mais antigo.
+app.get('/api/months', requireAuth, (req, res) => {
+  const set = new Set(statsStores.get(req.accountKey).months());
+  set.add(currentYm());
+  res.json({ months: [...set].sort().reverse(), current: currentYm() });
+});
+
+// Ranking consolidado de um mês (histórico persistente, sem eventos de teste).
+app.get('/api/ranking', requireAuth, (req, res) => {
+  const ym = /^\d{4}-\d{2}$/.test(String(req.query.month)) ? String(req.query.month) : currentYm();
+  const month = statsStores.get(req.accountKey).month(ym);
+  const client = kommoClients.get(req.accountKey);
+  const brokers = [];
+  if (month) {
+    for (const [key, b] of Object.entries(month.brokers)) {
+      brokers.push({
+        key,
+        name: b.name || client.userName(key) || (key === 'none' ? 'Sem corretor' : `Corretor #${key}`),
+        agendadas: b.agendadas,
+        realizadas: b.realizadas,
+      });
+    }
+  }
+  res.json({ month: ym, brokers });
 });
 
 app.get('/api/events', requireAuth, (req, res) => {
@@ -288,6 +326,7 @@ async function processWebhook(accountKey, body) {
     };
 
     store.add(event);
+    statsStores.get(accountKey).record(event);
     broadcast(accountKey, event);
     console.log(
       `[webhook:${accountKey}] lead ${event.leadId} "${event.leadName}" → status ${event.statusName || event.statusId}${event.isMeeting ? ' 🔔 REUNIÃO' : ''}`

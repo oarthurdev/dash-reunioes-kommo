@@ -254,6 +254,39 @@ main {
 /* ============================= tabela/placar ============================ */
 .board { padding: 10px 14px 14px; }
 
+.board-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 12px 4px;
+}
+.month-nav { display: flex; align-items: center; gap: 6px; }
+.month-nav .mini:disabled { opacity: 0.3; cursor: default; }
+#month-label {
+  min-width: 150px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 800;
+  text-transform: capitalize;
+  font-variant-numeric: tabular-nums;
+}
+.mode-badge {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  padding: 4px 10px;
+  border-radius: 999px;
+  color: #06240f;
+  background: var(--green);
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.4);
+}
+.mode-badge.hist {
+  color: #241a02;
+  background: var(--gold);
+  box-shadow: 0 0 10px rgba(246, 201, 69, 0.4);
+}
+#month-now { font-size: 11px; }
+
 .thead {
   display: grid;
   grid-template-columns: 74px 210px minmax(0, 1fr) 92px 118px;
