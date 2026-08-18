@@ -103,6 +103,124 @@ code { background: var(--panel-2); padding: 2px 6px; border-radius: 6px; font-si
 .picker { display: flex; gap: 12px; margin-top: 8px; }
 .picker .btn { flex: 1; }
 
+/* ---- login redesenhado ---- */
+.login-card { max-width: 420px; text-align: center; padding: 44px 40px 32px; }
+.login-logo {
+  width: 96px; height: 96px;
+  border-radius: 24px;
+  margin: -76px auto 14px;
+  display: block;
+  box-shadow: 0 0 45px rgba(59, 130, 246, 0.55), 0 14px 34px rgba(0, 0, 0, 0.6);
+  animation: logofloat 5s ease-in-out infinite;
+}
+@keyframes logofloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.login-brand {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  background: linear-gradient(180deg, #ffffff 30%, #b9c8e8 75%, #8fa6d8);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.login-account {
+  display: inline-block;
+  margin: 8px 0 6px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--blue-2);
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 5px 16px;
+}
+.muted.center { text-align: center; }
+.login-card form { text-align: left; }
+.login-card .error {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  background: rgba(248, 113, 113, 0.1);
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  border-radius: 10px;
+  padding: 9px 12px;
+  margin: 10px 0 0;
+}
+.field { position: relative; display: block; }
+.field .f-ico {
+  position: absolute;
+  left: 13px; top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  opacity: 0.7;
+  pointer-events: none;
+}
+.field input { width: 100%; padding-left: 40px; }
+.field .peek {
+  position: absolute;
+  right: 8px; top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--ink-3);
+  font-size: 15px;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+}
+.field .peek:hover { color: var(--ink); background: rgba(255, 255, 255, 0.06); }
+.login-card .btn { width: 100%; padding: 13px 18px; font-size: 15px; margin-top: 4px; }
+.login-card .btn:disabled { opacity: 0.7; cursor: wait; }
+.login-foot {
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--ink-3);
+}
+.shake { animation: shake 0.4s ease; }
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-8px); }
+  50% { transform: translateX(7px); }
+  75% { transform: translateX(-4px); }
+}
+
+/* ---- seletor de contas ---- */
+.acc-list { display: flex; flex-direction: column; gap: 12px; margin-top: 18px; }
+.acc-card {
+  display: flex; align-items: center; gap: 14px;
+  text-decoration: none;
+  color: var(--ink);
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px 16px;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s;
+  text-align: left;
+}
+.acc-card:hover {
+  border-color: var(--blue);
+  box-shadow: 0 0 24px rgba(59, 130, 246, 0.25);
+  transform: translateY(-1px);
+}
+.acc-avatar {
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 18px;
+  color: #fff;
+  background: linear-gradient(180deg, var(--blue-2), #2563eb);
+  box-shadow: 0 0 14px rgba(59, 130, 246, 0.4);
+}
+.acc-info { display: flex; flex-direction: column; line-height: 1.25; }
+.acc-info b { font-size: 16px; }
+.acc-info small { color: var(--ink-3); font-size: 12px; }
+.acc-go { margin-left: auto; font-size: 18px; color: var(--blue-2); }
+
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   background: linear-gradient(180deg, var(--blue-2), #2563eb);
@@ -131,14 +249,9 @@ header.top {
 }
 
 .trophy-art {
-  width: 108px; height: 108px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 64px;
-  border-radius: 22px;
-  background: radial-gradient(circle at 50% 35%, rgba(96, 165, 250, 0.3), rgba(10, 17, 42, 0.2) 70%);
-  border: 1px solid var(--line);
-  box-shadow: 0 0 45px rgba(59, 130, 246, 0.35), inset 0 0 25px rgba(59, 130, 246, 0.2);
-  filter: drop-shadow(0 4px 14px rgba(59, 130, 246, 0.55));
+  width: 104px; height: 104px;
+  border-radius: 24px;
+  box-shadow: 0 0 45px rgba(59, 130, 246, 0.4), 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 
 .brand h1 {

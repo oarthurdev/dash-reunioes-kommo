@@ -77,4 +77,5 @@ Ou clique em **"Testar alerta"** no próprio dashboard.
 
 - **Som**: navegadores bloqueiam áudio sem interação — clique em **"Ativar som"** uma vez em cada máquina/aba que ficará monitorando (a preferência fica salva).
 - **Persistência**: eventos ficam em `data/events-<conta>.json` (últimos 500 por conta). Sem banco de dados.
+- **Reset mensal + histórico**: o ranking mostra sempre o mês atual e zera automaticamente na virada. Cada reunião também é consolidada em `data/stats-<conta>.json` (mês → corretor → agendadas/realizadas), permanente; as setas ◀ ▶ ao lado do mês no placar navegam pelos meses anteriores (badge HISTÓRICO). Alertas de teste não entram no histórico.
 - **Sem token e sem IDs configurados**, nenhum evento é marcado como reunião — configure pelo menos um dos dois.

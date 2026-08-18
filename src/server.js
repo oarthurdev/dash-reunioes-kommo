@@ -80,17 +80,28 @@ function requireAuth(req, res, next) {
   next();
 }
 
+const FAVICON_TAGS = `<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="apple-touch-icon" href="/logo.png">`;
+
 function accountPickerHtml() {
   const links = [...config.accounts.values()]
-    .map((a) => `<a class="btn" href="/?account=${a.key}">${a.label}</a>`)
+    .map(
+      (a) => `<a class="acc-card" href="/?account=${a.key}">
+        <span class="acc-avatar">${a.label.slice(0, 1).toUpperCase()}</span>
+        <span class="acc-info"><b>${a.label}</b><small>${a.kommoSubdomain}.kommo.com</small></span>
+        <span class="acc-go">→</span>
+      </a>`
+    )
     .join('');
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Dash Reunião — Contas</title><link rel="stylesheet" href="/style.css"></head>
-<body class="center-page"><div class="card">
-<h1>Dash Reunião</h1>
-<p>Acesse pelo subdomínio da conta (ex.: <code>dicasa.seudominio.com</code>) ou escolha abaixo:</p>
-<div class="picker">${links}</div>
+<title>Placar de Reuniões — Contas</title>${FAVICON_TAGS}
+<link rel="stylesheet" href="/style.css"></head>
+<body class="center-page"><div class="card login-card">
+<img class="login-logo" src="/logo.png" alt="Placar de Reuniões">
+<div class="login-brand">Placar de Reuniões</div>
+<p class="muted center">Escolha a imobiliária para entrar — ou acesse direto pelo subdomínio (ex.: <code>dicasa.seudominio.com</code>).</p>
+<div class="acc-list">${links}</div>
 </div></body></html>`;
 }
 
@@ -100,17 +111,45 @@ function accountPickerHtml() {
 function loginHtml(account, suffix, errorMsg) {
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Login — ${account.label}</title><link rel="stylesheet" href="/style.css"></head>
-<body class="center-page"><div class="card">
-<h1>${account.label}</h1>
-<p class="muted">Dashboard de reuniões — Kommo CRM</p>
-${errorMsg ? `<p class="error">${errorMsg}</p>` : ''}
-<form method="post" action="/login${suffix}">
-  <label>Usuário<input name="user" autocomplete="username" required autofocus></label>
-  <label>Senha<input name="pass" type="password" autocomplete="current-password" required></label>
-  <button type="submit" class="btn">Entrar</button>
+<title>Entrar — ${account.label} · Placar de Reuniões</title>${FAVICON_TAGS}
+<link rel="stylesheet" href="/style.css"></head>
+<body class="center-page"><div class="card login-card${errorMsg ? ' shake' : ''}">
+<img class="login-logo" src="/logo.png" alt="Placar de Reuniões">
+<div class="login-brand">Placar de Reuniões</div>
+<span class="login-account">${account.label}</span>
+<p class="muted center">Reuniões do time em tempo real — Kommo CRM</p>
+${errorMsg ? `<p class="error"><span>⚠️</span> ${errorMsg}</p>` : ''}
+<form method="post" action="/login${suffix}" id="login-form">
+  <label>Usuário
+    <span class="field">
+      <span class="f-ico">👤</span>
+      <input name="user" autocomplete="username" placeholder="seu usuário" required autofocus>
+    </span>
+  </label>
+  <label>Senha
+    <span class="field">
+      <span class="f-ico">🔒</span>
+      <input id="pass-input" name="pass" type="password" autocomplete="current-password" placeholder="••••••••" required>
+      <button type="button" class="peek" id="peek" title="Mostrar senha" aria-label="Mostrar senha">👁</button>
+    </span>
+  </label>
+  <button type="submit" class="btn" id="login-btn">Entrar no placar</button>
 </form>
-</div></body></html>`;
+<div class="login-foot">🔔 alerta sonoro · 🏆 ranking mensal · ⚡ tempo real</div>
+</div>
+<script>
+  const pass = document.getElementById('pass-input');
+  document.getElementById('peek').addEventListener('click', function () {
+    pass.type = pass.type === 'password' ? 'text' : 'password';
+    this.textContent = pass.type === 'password' ? '👁' : '🙈';
+  });
+  document.getElementById('login-form').addEventListener('submit', function () {
+    const b = document.getElementById('login-btn');
+    b.disabled = true;
+    b.textContent = 'Entrando…';
+  });
+</script>
+</body></html>`;
 }
 
 app.get('/login', (req, res) => {
