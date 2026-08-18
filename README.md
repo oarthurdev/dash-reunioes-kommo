@@ -1,6 +1,6 @@
-# Dash Reunião — Kommo CRM
+# Placar de Reuniões — Kommo CRM
 
-Dashboard administrativo em tempo real que recebe webhooks de alteração de status de lead da Kommo CRM e **emite alerta sonoro + visual quando um corretor move um lead para "Reunião"**.
+Dashboard administrativo em tempo real que recebe webhooks de alteração de status de lead da Kommo CRM e mostra um **ranking de reuniões por corretor** (pódio top 3 + lista com todos os corretores da conta), com filtro Hoje / 7 dias / 30 dias. Quando um corretor move um lead para "Reunião", o placar atualiza na hora e o dashboard **emite alerta em tela cheia com campainha + locução em português** ("Atenção! Reunião agendada!").
 
 Suporta duas contas Kommo, separadas por subdomínio:
 
@@ -13,7 +13,7 @@ Suporta duas contas Kommo, separadas por subdomínio:
 
 1. A Kommo envia um webhook (`POST /webhook/kommo`) a cada mudança de status de lead.
 2. O servidor identifica a conta pelo `account[subdomain]` do payload (ou pelo subdomínio do host) e registra o evento em `data/events-<conta>.json`.
-3. O dashboard, conectado via SSE (`/events`), recebe o evento na hora. Se o novo status for de "Reunião", abre um alerta em tela cheia com som contínuo até alguém clicar em **"OK, visto!"**.
+3. O dashboard, conectado via SSE (`/events`), recebe o evento na hora: o ranking reordena com animação, o corretor que pontuou pisca em destaque e, se o novo status for de "Reunião", abre um alerta em tela cheia com som contínuo (campainha + voz) até alguém clicar em **"OK, visto!"**. A lista de corretores vem da API da Kommo (token no `.env`), então quem ainda não pontuou também aparece, zerado.
 
 ## Instalação
 
@@ -23,7 +23,7 @@ npm install
 
 Copie `.env.example` para `.env` e configure (já existe um `.env` inicial):
 
-- `DASH_USER` / `DASH_PASS` — login do dashboard (ou `DICASA_DASH_USER`, `MAZI_DASH_USER`, etc. por conta).
+- `DASH_USER` / `DASH_PASS` — login global do dashboard. Cada conta também aceita **até 3 usuários próprios**: `DICASA_DASH_USER1`/`DICASA_DASH_PASS1` até `..._USER3`/`..._PASS3` (idem `MAZI_...`). Se a conta tiver usuários próprios, **só eles** logam nela; sem nenhum, valem as credenciais globais.
 - `SESSION_SECRET` — string longa e aleatória.
 - `DICASA_KOMMO_TOKEN` / `MAZI_KOMMO_TOKEN` — token de longa duração da Kommo (Configurações → Integrações → sua integração → token). **Opcional, mas recomendado**: com ele o dashboard mostra o *nome* do status e do corretor, e detecta automaticamente qualquer status cujo nome contenha "reuni" (Reunião, Reunião agendada, …).
 - `DICASA_MEETING_STATUS_IDS` / `MAZI_MEETING_STATUS_IDS` — alternativa manual: IDs dos status de reunião, separados por vírgula (ex.: `42625614,42625617`). Têm prioridade sobre a detecção automática.

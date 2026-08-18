@@ -14,6 +14,22 @@ function parseIdList(value) {
 // corresponde a uma conta Kommo.
 const ACCOUNT_KEYS = ['dicasa', 'mazi'];
 
+// Até 3 usuários de login por conta: <CONTA>_DASH_USER1/_PASS1 .. _USER3/_PASS3.
+// O par sem sufixo (<CONTA>_DASH_USER/_PASS) segue aceito por compatibilidade e
+// conta dentro do limite. Sem nenhum usuário na conta, valem DASH_USER/DASH_PASS.
+function buildLogins(upper) {
+  const logins = [];
+  for (const suffix of ['', '1', '2', '3']) {
+    const user = process.env[`${upper}_DASH_USER${suffix}`];
+    const pass = process.env[`${upper}_DASH_PASS${suffix}`];
+    if (user && pass) logins.push({ user, pass });
+  }
+  if (logins.length === 0 && process.env.DASH_USER && process.env.DASH_PASS) {
+    logins.push({ user: process.env.DASH_USER, pass: process.env.DASH_PASS });
+  }
+  return logins.slice(0, 3);
+}
+
 function buildAccount(key) {
   const upper = key.toUpperCase();
   return {
@@ -28,9 +44,8 @@ function buildAccount(key) {
     // IDs de status que disparam o alerta de reunião. Se vazio e houver token,
     // o servidor detecta automaticamente os status cujo nome contém "reuni".
     meetingStatusIds: parseIdList(process.env[`${upper}_MEETING_STATUS_IDS`]),
-    // Credenciais de login (por conta, com fallback para as globais).
-    user: process.env[`${upper}_DASH_USER`] || process.env.DASH_USER || '',
-    pass: process.env[`${upper}_DASH_PASS`] || process.env.DASH_PASS || '',
+    // Credenciais de login da conta (até 3 usuários).
+    logins: buildLogins(upper),
   };
 }
 
@@ -53,9 +68,9 @@ if (!process.env.SESSION_SECRET) {
 }
 
 for (const acc of accounts.values()) {
-  if (!acc.user || !acc.pass) {
+  if (acc.logins.length === 0) {
     console.warn(
-      `[config] Conta "${acc.key}" sem credenciais de login (defina DASH_USER/DASH_PASS ou ${acc.key.toUpperCase()}_DASH_USER/_DASH_PASS no .env).`
+      `[config] Conta "${acc.key}" sem credenciais de login (defina DASH_USER/DASH_PASS ou ${acc.key.toUpperCase()}_DASH_USER1/_DASH_PASS1 no .env).`
     );
   }
 }

@@ -58,8 +58,12 @@ function safeEqual(a, b) {
 }
 
 function checkCredentials(account, user, pass) {
-  if (!account.user || !account.pass) return false;
-  return safeEqual(user, account.user) && safeEqual(pass, account.pass);
+  let ok = false;
+  for (const cred of account.logins) {
+    // compara todos os pares (sem retorno antecipado) para tempo constante
+    if (safeEqual(user, cred.user) && safeEqual(pass, cred.pass)) ok = true;
+  }
+  return ok;
 }
 
 module.exports = {
