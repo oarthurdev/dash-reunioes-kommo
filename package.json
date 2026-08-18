@@ -1,0 +1,17 @@
+{
+  "name": "dash-reuniao-kommo",
+  "version": "1.0.0",
+  "description": "Dashboard em tempo real de leads movidos para Reunião na Kommo CRM (contas dicasa e mazi)",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  }
+}

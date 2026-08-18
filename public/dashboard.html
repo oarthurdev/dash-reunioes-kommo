@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dash Reunião</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <h1 id="account-label">Dash Reunião</h1>
+    <span class="pill"><span class="dot" id="conn-dot"></span><span id="conn-text">conectando…</span></span>
+    <span class="spacer"></span>
+    <button class="btn ghost" id="sound-btn">🔇 Ativar som</button>
+    <button class="btn ghost" id="test-btn">Testar alerta</button>
+    <form method="post" action="/logout" id="logout-form">
+      <button class="btn ghost" type="submit">Sair</button>
+    </form>
+  </header>
+
+  <main>
+    <div class="stats">
+      <div class="stat meeting"><div class="value" id="stat-today">0</div><div class="label">Reuniões hoje</div></div>
+      <div class="stat"><div class="value" id="stat-week">0</div><div class="label">Reuniões últimos 7 dias</div></div>
+      <div class="stat"><div class="value" id="stat-events">0</div><div class="label">Movimentações recentes</div></div>
+    </div>
+
+    <div class="section-title">
+      <h2>Atividade em tempo real</h2>
+      <span class="muted" id="enrich-note"></span>
+    </div>
+    <ul class="feed" id="feed"></ul>
+    <div class="empty" id="empty" hidden>Nenhum evento recebido ainda. Configure o webhook na Kommo apontando para <code>/webhook/kommo</code>.</div>
+  </main>
+
+  <div id="alert-overlay">
+    <div class="alert-box">
+      <div class="icon">🗓️🔔</div>
+      <h2>Lead movido para Reunião!</h2>
+      <div class="lead" id="alert-lead"></div>
+      <div class="broker" id="alert-broker"></div>
+      <button class="btn" id="alert-dismiss">OK, visto!</button>
+    </div>
+  </div>
+
+  <script src="/dashboard.js"></script>
+</body>
+</html>
