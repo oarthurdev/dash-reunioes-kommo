@@ -98,6 +98,21 @@ class KommoClient {
     if (info) return normalize(info.name).includes('reuni');
     return false;
   }
+
+  // Reunião REALIZADA: IDs do .env têm prioridade; sem configuração, detecta
+  // pelo nome (contém "reuni" e "realizad", ex.: "Reunião realizada").
+  isDoneStatus(statusId) {
+    const id = Number(statusId);
+    if (this.account.doneStatusIds.length > 0) {
+      return this.account.doneStatusIds.includes(id);
+    }
+    const info = this.statusInfo(id);
+    if (info) {
+      const n = normalize(info.name);
+      return n.includes('reuni') && n.includes('realizad');
+    }
+    return false;
+  }
 }
 
 module.exports = { KommoClient };

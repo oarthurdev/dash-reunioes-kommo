@@ -9,18 +9,20 @@
 
   const events = [];
   const seen = new Set();
-  let knownUsers = []; // corretores da conta (via API Kommo), para listar os zerados
-  let period = localStorage.getItem('rankPeriod') || 'today';
+  let knownUsers = [];
+  let metaCorretor = 25;
+  let metaTime = 20;
 
   // ---------------------------------------------------------------------
-  // Som de alerta (WebAudio — campainha) + locução
+  // Som de alerta (campainha WebAudio + locução gravada + voz do navegador)
   // ---------------------------------------------------------------------
   let audioCtx = null;
   let soundOn = localStorage.getItem('soundOn') === '1';
   let sirenTimer = null;
 
   function updateSoundBtn() {
-    $('sound-btn').textContent = soundOn ? '🔊 Som ativado' : '🔇 Ativar som';
+    $('sound-btn').textContent = soundOn ? '🔊' : '🔇';
+    $('sound-btn').title = soundOn ? 'Som ativado' : 'Ativar som';
   }
 
   function ensureAudio() {
@@ -28,7 +30,6 @@
     if (audioCtx.state === 'suspended') audioCtx.resume();
   }
 
-  // Nota de "sino" sintetizada: fundamental + harmônicos com decaimento natural.
   function bellNote(freq, when, dur, volume) {
     const partials = [
       { mult: 1, gain: 1 },
@@ -50,19 +51,18 @@
     }
   }
 
-  // Campainha clássica "ding-dong" (E5 → C5).
   function playChime() {
     if (!soundOn) return;
     ensureAudio();
     const t = audioCtx.currentTime;
-    bellNote(659.25, t, 1.1, 0.4);        // ding
-    bellNote(523.25, t + 0.45, 1.5, 0.4); // dong
+    bellNote(659.25, t, 1.1, 0.4);
+    bellNote(523.25, t + 0.45, 1.5, 0.4);
   }
 
   let currentAlert = null;
   let speakTimer = null;
 
-  if ('speechSynthesis' in window) speechSynthesis.getVoices(); // aquece a lista de vozes
+  if ('speechSynthesis' in window) speechSynthesis.getVoices();
 
   function ptVoice() {
     return speechSynthesis
@@ -70,8 +70,6 @@
       .find((v) => v.lang && v.lang.toLowerCase().startsWith('pt'));
   }
 
-  // Locução gravada em pt-BR ("Atenção! Reunião agendada!") — funciona em
-  // qualquer máquina, mesmo sem voz pt-BR instalada no sistema.
   const alertVoice = new Audio('/alert-reuniao.wav');
   alertVoice.onended = () => {
     if (sirenTimer && ptVoice()) speakDetails(false);
@@ -100,11 +98,8 @@
     clearTimeout(speakTimer);
     speakTimer = setTimeout(() => {
       alertVoice.currentTime = 0;
-      alertVoice
-        .play()
-        // se o áudio gravado falhar, cai para a voz do navegador com a frase completa
-        .catch(() => speakDetails(true));
-    }, 1100); // logo após o "ding-dong"
+      alertVoice.play().catch(() => speakDetails(true));
+    }, 1100);
   }
 
   function startSiren() {
@@ -131,16 +126,14 @@
   });
   updateSoundBtn();
 
-  // Após recarregar a página o navegador trava áudio/voz até a 1ª interação;
-  // qualquer clique na página destrava (a preferência de som já fica salva).
   if (soundOn) {
     document.body.addEventListener('click', () => ensureAudio(), { once: true });
   }
 
   // ---------------------------------------------------------------------
-  // Identidade visual dos corretores (cor estável por corretor, nunca por rank)
+  // Identidade visual dos corretores (cor estável por corretor)
   // ---------------------------------------------------------------------
-  const AVATAR_COLORS = ['#5eead4', '#93c5fd', '#f9a8d4', '#fcd34d', '#c4b5fd', '#86efac', '#fdba74', '#a5f3fc'];
+  const AVATAR_COLORS = ['#3b82f6', '#8b5cf6', '#ef4444', '#f97316', '#eab308', '#06b6d4', '#ec4899', '#22c55e'];
 
   function avatarColor(key) {
     let h = 0;
@@ -152,26 +145,39 @@
   function initials(name) {
     const words = String(name || '?').trim().split(/\s+/);
     const a = words[0]?.[0] || '?';
-    const b = words.length > 1 ? words[words.length - 1][0] : (words[0]?.[1] || '');
+    const b = words.length > 1 ? words[words.length - 1][0] : '';
     return (a + b).toUpperCase();
   }
 
   function makeAvatar(key, name, className = 'avatar') {
     const el = document.createElement('div');
     el.className = className;
-    el.style.background = avatarColor(key);
+    el.style.background = `radial-gradient(circle at 35% 30%, ${avatarColor(key)}, #0a1128 160%)`;
+    el.style.backgroundColor = avatarColor(key);
     el.textContent = initials(name);
     return el;
   }
 
   // ---------------------------------------------------------------------
-  // Agregação do ranking
+  // Classificação e agregação (mês atual)
   // ---------------------------------------------------------------------
-  function periodStart() {
+  function norm(s) {
+    return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  }
+
+  function isRealizada(ev) {
+    if (ev.isMeetingDone) return true;
+    const n = norm(ev.statusName);
+    return n.includes('reuni') && n.includes('realizad');
+  }
+
+  function isAgendada(ev) {
+    return Boolean(ev.isMeeting) && !isRealizada(ev);
+  }
+
+  function monthStart() {
     const now = new Date();
-    if (period === 'today') return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    if (period === '7d') return Date.now() - 7 * 864e5;
-    return Date.now() - 30 * 864e5;
+    return new Date(now.getFullYear(), now.getMonth(), 1).getTime();
   }
 
   function brokerKey(ev) {
@@ -184,137 +190,184 @@
     return u?.name || (ev.responsibleUserId ? `Corretor #${ev.responsibleUserId}` : 'Sem corretor');
   }
 
-  function aggregate() {
-    const start = periodStart();
-    const map = new Map(); // key -> {key, name, count, lastTs}
-    for (const u of knownUsers) {
-      map.set(String(u.id), { key: String(u.id), name: u.name, count: 0, lastTs: 0 });
-    }
-    let total = 0;
-    let lastMeeting = null;
-    for (const ev of events) {
-      if (!ev.isMeeting || ev.ts < start) continue;
-      const key = brokerKey(ev);
-      if (!map.has(key)) map.set(key, { key, name: brokerName(ev), count: 0, lastTs: 0 });
-      const b = map.get(key);
-      b.count += 1;
-      b.lastTs = Math.max(b.lastTs, ev.ts);
-      total += 1;
-      if (!lastMeeting || ev.ts > lastMeeting.ts) lastMeeting = ev;
-    }
-    const brokers = [...map.values()].sort(
-      (a, b) => b.count - a.count || b.lastTs - a.lastTs || a.name.localeCompare(b.name, 'pt-BR')
-    );
-    return { brokers, total, lastMeeting };
+  function dayStr(ts) {
+    const d = new Date(ts);
+    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
   }
 
-  function countFor(key, sinceTs) {
+  function streakDays(key) {
+    const days = new Set();
+    for (const ev of events) {
+      if ((isAgendada(ev) || isRealizada(ev)) && brokerKey(ev) === key) days.add(dayStr(ev.ts));
+    }
+    let streak = 0;
+    const d = new Date();
+    // hoje ainda sem reunião não quebra a sequência
+    if (!days.has(dayStr(d.getTime()))) d.setDate(d.getDate() - 1);
+    while (days.has(dayStr(d.getTime()))) {
+      streak++;
+      d.setDate(d.getDate() - 1);
+    }
+    return streak;
+  }
+
+  function aggregate() {
+    const start = monthStart();
+    const map = new Map();
+    for (const u of knownUsers) {
+      map.set(String(u.id), { key: String(u.id), name: u.name, agendadas: 0, realizadas: 0, lastTs: 0 });
+    }
+    let totAgendadas = 0;
+    let totRealizadas = 0;
+    for (const ev of events) {
+      if (ev.ts < start) continue;
+      const ag = isAgendada(ev);
+      const re = isRealizada(ev);
+      if (!ag && !re) continue;
+      const key = brokerKey(ev);
+      if (!map.has(key)) map.set(key, { key, name: brokerName(ev), agendadas: 0, realizadas: 0, lastTs: 0 });
+      const b = map.get(key);
+      if (ag) { b.agendadas++; totAgendadas++; }
+      if (re) { b.realizadas++; totRealizadas++; }
+      b.lastTs = Math.max(b.lastTs, ev.ts);
+    }
+    const brokers = [...map.values()].sort(
+      (a, b) =>
+        b.agendadas - a.agendadas ||
+        b.realizadas - a.realizadas ||
+        b.lastTs - a.lastTs ||
+        a.name.localeCompare(b.name, 'pt-BR')
+    );
+    return { brokers, totAgendadas, totRealizadas };
+  }
+
+  function countAgendadasHoje(key) {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
     let n = 0;
     for (const ev of events) {
-      if (ev.isMeeting && ev.ts >= sinceTs && brokerKey(ev) === key) n++;
+      if (isAgendada(ev) && ev.ts >= start.getTime() && brokerKey(ev) === key) n++;
     }
     return n;
   }
 
   // ---------------------------------------------------------------------
-  // Render — pódio, ranking (com animação FLIP), estatísticas
+  // Render
   // ---------------------------------------------------------------------
-  const fmtTime = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' });
-  const fmtDay = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' });
+  let lastBump = null;
 
-  function timeAgo(ts) {
-    const s = Math.floor((Date.now() - ts) / 1000);
-    if (s < 60) return 'agora';
-    if (s < 3600) return `há ${Math.floor(s / 60)} min`;
-    if (s < 86400) return `há ${Math.floor(s / 3600)} h`;
-    return `há ${Math.floor(s / 86400)} d`;
+  function renderAxis() {
+    const axis = $('axis');
+    axis.innerHTML = '';
+    const stepCount = 5;
+    const step = Math.max(1, Math.round(metaCorretor / stepCount));
+    for (let v = 0; v < metaCorretor; v += step) {
+      const tick = document.createElement('span');
+      tick.className = 'tick';
+      tick.style.left = `${(v / metaCorretor) * 100}%`;
+      tick.textContent = v;
+      axis.append(tick);
+    }
   }
 
-  let lastBump = null; // corretor que pontuou por último (efeito visual)
-
   function renderBoard() {
-    const { brokers, total, lastMeeting } = aggregate();
+    const { brokers, totAgendadas, totRealizadas } = aggregate();
 
-    // estatísticas
-    $('stat-total').textContent = total;
-    const leader = brokers.find((b) => b.count > 0);
-    $('stat-leader').textContent = leader ? leader.name.split(/\s+/)[0] : '—';
-    $('stat-leader-sub').textContent = leader ? `${leader.count} ${leader.count === 1 ? 'reunião' : 'reuniões'}` : 'sem reuniões no período';
-    $('stat-last').textContent = lastMeeting ? timeAgo(lastMeeting.ts) : '—';
-    $('stat-last-sub').textContent = lastMeeting
-      ? `${lastMeeting.leadName || 'lead'} · ${fmtDay.format(new Date(lastMeeting.ts))} ${fmtTime.format(new Date(lastMeeting.ts))}`
-      : '';
+    // KPIs do topo
+    $('meta-time').textContent = metaTime;
+    const pct = Math.min(100, Math.round((totAgendadas / Math.max(1, metaTime)) * 100));
+    $('ring-label').textContent = `${pct}%`;
+    $('ring-fg').style.strokeDashoffset = String(150.8 * (1 - pct / 100));
+    $('kpi-total').textContent = totAgendadas + totRealizadas;
 
-    // pódio (só quem pontuou)
-    const podium = $('podium');
-    podium.innerHTML = '';
-    const top = brokers.filter((b) => b.count > 0).slice(0, 3);
-    const slots = [
-      { cls: 'second', crown: '', b: top[1] },
-      { cls: 'first', crown: '👑', b: top[0] },
-      { cls: 'third', crown: '', b: top[2] },
-    ];
-    for (const slot of slots) {
-      const div = document.createElement('div');
-      div.className = `step ${slot.cls}${slot.b ? '' : ' empty'}`;
-      const crown = document.createElement('div');
-      crown.className = 'crown';
-      crown.textContent = slot.b ? slot.crown : '';
-      div.append(crown);
-      div.append(makeAvatar(slot.b?.key ?? slot.cls, slot.b?.name ?? '—'));
-      const name = document.createElement('div');
-      name.className = 'name';
-      name.textContent = slot.b ? slot.b.name : '—';
-      const score = document.createElement('div');
-      score.className = 'score';
-      const bnum = document.createElement('b');
-      bnum.textContent = slot.b ? slot.b.count : '·';
-      score.append(bnum, document.createTextNode(slot.b ? (slot.b.count === 1 ? 'reunião' : 'reuniões') : ''));
-      const base = document.createElement('div');
-      base.className = 'base';
-      div.append(name, score, base);
-      podium.append(div);
-    }
+    // Resumo do time
+    $('sum-agendadas').textContent = totAgendadas;
+    $('sum-realizadas').textContent = totRealizadas;
+    $('sum-conv').textContent = totAgendadas > 0 ? `${Math.round((totRealizadas / totAgendadas) * 100)}%` : '0%';
 
-    // ranking com animação FLIP (linhas deslizam para a nova posição)
+    // Card "Bora!"
+    const hit = totAgendadas >= metaTime;
+    $('bora-sub').textContent = hit ? 'O time está batendo metas!' : 'Rumo à meta do time!';
+
+    // Ranking
     const list = $('rank-list');
     const oldPos = new Map();
-    for (const row of list.children) {
-      oldPos.set(row.dataset.key, row.getBoundingClientRect().top);
-    }
+    for (const row of list.children) oldPos.set(row.dataset.key, row.getBoundingClientRect().top);
 
     list.innerHTML = '';
-    const max = Math.max(1, ...brokers.map((b) => b.count));
-    const medals = ['gold', 'silver', 'bronze'];
     brokers.forEach((b, i) => {
       const li = document.createElement('li');
-      li.className = 'rank-row' + (b.count === 0 ? ' zero' : '');
+      const active = b.agendadas > 0 || b.realizadas > 0;
+      li.className = 'row' + (active && i < 3 ? ` r${i + 1}` : '') + (active ? '' : ' zero');
       li.dataset.key = b.key;
 
+      // posição
       const pos = document.createElement('span');
-      pos.className = 'rank-pos' + (b.count > 0 && i < 3 ? ` ${medals[i]}` : '');
-      pos.textContent = b.count > 0 ? `${i + 1}º` : '·';
+      pos.className = 'pos';
+      if (active && i < 3) {
+        const crown = document.createElement('span');
+        crown.className = 'crown';
+        crown.textContent = '👑';
+        pos.append(crown);
+      }
+      pos.append(document.createTextNode(active ? `${i + 1}º` : '·'));
 
-      const main = document.createElement('div');
-      main.className = 'rank-main';
-      const name = document.createElement('div');
-      name.className = 'rank-name';
+      // corretor
+      const who = document.createElement('div');
+      who.className = 'who';
+      const name = document.createElement('span');
+      name.className = 'name';
       name.textContent = b.name;
-      const bar = document.createElement('div');
-      bar.className = 'rank-bar';
-      const fill = document.createElement('i');
-      fill.style.width = `${(b.count / max) * 100}%`;
-      bar.append(fill);
-      main.append(name, bar);
+      who.append(makeAvatar(b.key, b.name), name);
 
-      const count = document.createElement('div');
-      count.className = 'rank-count';
-      count.textContent = b.count;
-      const lbl = document.createElement('small');
-      lbl.textContent = b.count === 1 ? 'reunião' : 'reuniões';
-      count.append(lbl);
+      // barras
+      const bars = document.createElement('div');
+      bars.className = 'bars';
+      const stepPx = Math.max(1, Math.round(metaCorretor / 5));
+      for (let v = stepPx; v < metaCorretor; v += stepPx) {
+        const gl = document.createElement('span');
+        gl.className = 'grid-line';
+        gl.style.left = `${(v / metaCorretor) * 100}%`;
+        bars.append(gl);
+      }
+      const mk = (cls, value, leader) => {
+        const bar = document.createElement('div');
+        bar.className = `bar ${cls}`;
+        const fill = document.createElement('i');
+        const w = Math.min(100, (value / metaCorretor) * 100);
+        fill.style.width = `${w}%`;
+        bar.append(fill);
+        const val = document.createElement('span');
+        val.className = 'val';
+        val.style.left = `${w}%`;
+        val.textContent = value;
+        bar.append(val);
+        if (leader && value > 0) {
+          const rk = document.createElement('span');
+          rk.className = 'rocket';
+          rk.style.left = `${w}%`;
+          rk.textContent = '🚀';
+          bar.append(rk);
+        }
+        return bar;
+      };
+      bars.append(mk('agendadas', b.agendadas, i === 0 && active), mk('realizadas', b.realizadas, false));
 
-      li.append(pos, makeAvatar(b.key, b.name), main, count);
+      // números "x / meta"
+      const nums = document.createElement('div');
+      nums.className = 'nums';
+      nums.innerHTML =
+        `<div class="a">${b.agendadas} <small>/ ${metaCorretor}</small></div>` +
+        `<div class="r">${b.realizadas} <small>/ ${metaCorretor}</small></div>`;
+
+      // sequência de dias
+      const st = streakDays(b.key);
+      const streak = document.createElement('div');
+      streak.className = 'streak' + (st > 0 ? '' : ' off');
+      streak.innerHTML =
+        `<span class="fire">🔥</span><span><b>${st > 0 ? st : '—'} ${st === 1 ? 'dia' : 'dias'}</b><small>${st === 1 ? 'seguido' : 'seguidos'}</small></span>`;
+
+      li.append(pos, who, bars, nums, streak);
       if (b.key === lastBump) {
         li.classList.add('bump');
         li.addEventListener('animationend', () => li.classList.remove('bump'), { once: true });
@@ -322,7 +375,7 @@
       list.append(li);
     });
 
-    // FLIP: anima do deslocamento antigo para a posição nova
+    // FLIP: anima as linhas até a nova posição
     for (const row of list.children) {
       const before = oldPos.get(row.dataset.key);
       if (before == null) continue;
@@ -338,46 +391,18 @@
   }
 
   // ---------------------------------------------------------------------
-  // Feed lateral
+  // Relógio do cabeçalho
   // ---------------------------------------------------------------------
-  function renderFeed() {
-    const feed = $('feed');
-    feed.innerHTML = '';
-    $('feed-empty').hidden = events.length > 0;
-    for (const ev of events.slice(0, 40)) {
-      const li = document.createElement('li');
-      li.className = 'ev' + (ev.isMeeting ? ' meeting' : '');
+  const fmtDate = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const fmtClock = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
-      const l1 = document.createElement('div');
-      l1.className = 'l1';
-      const lead = document.createElement('span');
-      lead.className = 'lead';
-      lead.textContent = ev.leadName || `Lead #${ev.leadId}`;
-      const when = document.createElement('span');
-      when.className = 'when';
-      const d = new Date(ev.ts);
-      when.textContent = `${fmtDay.format(d)} ${fmtTime.format(d)}`;
-      l1.append(lead, when);
-
-      const l2 = document.createElement('div');
-      l2.className = 'l2';
-      const to = ev.statusName || (ev.statusId ? `status #${ev.statusId}` : '?');
-      const broker = ev.responsibleUserName || '';
-      const b = document.createElement('b');
-      b.textContent = to;
-      l2.append(ev.type === 'add' ? 'Novo lead em ' : '→ ', b);
-      if (broker) l2.append(document.createTextNode(` · ${broker}`));
-
-      li.append(l1, l2);
-      if (ev.isMeeting) {
-        const tag = document.createElement('span');
-        tag.className = 'tag';
-        tag.textContent = 'REUNIÃO';
-        li.append(tag);
-      }
-      feed.append(li);
-    }
+  function tickClock() {
+    const now = new Date();
+    $('date-chip').textContent = fmtDate.format(now);
+    $('time-chip').textContent = fmtClock.format(now);
   }
+  tickClock();
+  setInterval(tickClock, 15000);
 
   // ---------------------------------------------------------------------
   // Alerta visual
@@ -389,12 +414,10 @@
     $('alert-broker').textContent = ev.responsibleUserName ? `Corretor: ${ev.responsibleUserName}` : '';
 
     const av = $('alert-avatar');
-    av.style.background = avatarColor(brokerKey(ev));
+    av.style.background = `radial-gradient(circle at 35% 30%, ${avatarColor(brokerKey(ev))}, #0a1128 160%)`;
     av.textContent = initials(ev.responsibleUserName || name);
 
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
-    const n = countFor(brokerKey(ev), startOfDay.getTime());
+    const n = countAgendadasHoje(brokerKey(ev));
     $('alert-tally').textContent = ev.responsibleUserName
       ? `${n}ª reunião de ${ev.responsibleUserName.split(/\s+/)[0]} hoje 🔥`
       : '';
@@ -419,24 +442,10 @@
     seen.add(ev.id);
     events.unshift(ev);
     events.sort((a, b) => b.ts - a.ts);
-    if (ev.isMeeting) lastBump = brokerKey(ev);
+    if (ev.isMeeting || isRealizada(ev)) lastBump = brokerKey(ev);
     renderBoard();
-    renderFeed();
-    if (alert && ev.isMeeting) showAlert(ev);
+    if (alert && isAgendada(ev)) showAlert(ev);
   }
-
-  $('period-seg').addEventListener('click', (e) => {
-    const btn = e.target.closest('button[data-period]');
-    if (!btn) return;
-    period = btn.dataset.period;
-    localStorage.setItem('rankPeriod', period);
-    for (const b of $('period-seg').children) b.classList.toggle('on', b === btn);
-    lastBump = null;
-    renderBoard();
-  });
-
-  // aplica período salvo
-  for (const b of $('period-seg').children) b.classList.toggle('on', b.dataset.period === period);
 
   async function loadInitial() {
     const [meta, data] = await Promise.all([
@@ -444,20 +453,20 @@
       fetch(api('/api/events')).then((r) => (r.ok ? r.json() : Promise.reject(r.status))),
     ]);
     $('account-label').textContent = meta.label;
-    document.title = `${meta.label} — Placar de Reuniões`;
-    $('enrich-note').textContent = meta.enriched
-      ? ''
-      : 'sem token Kommo no .env — exibindo IDs';
+    document.title = `${meta.label} — Dashboard de Reuniões`;
     knownUsers = meta.users || [];
+    metaCorretor = meta.metaCorretor || 25;
+    metaTime = meta.metaTime || 20;
+    $('meta-corretor').textContent = metaCorretor;
+    renderAxis();
     for (const ev of data.events) addEvent(ev);
     renderBoard();
-    renderFeed();
   }
 
   function connectSSE() {
     const es = new EventSource(api('/events'));
     es.onopen = () => setConn(true);
-    es.onerror = () => setConn(false); // EventSource reconecta sozinho
+    es.onerror = () => setConn(false);
     es.onmessage = (msg) => {
       try {
         addEvent(JSON.parse(msg.data), { alert: true });
@@ -476,12 +485,11 @@
     fetch(api('/api/test-alert'), { method: 'POST' });
   });
 
-  // Notificações do navegador (opcional, além do som)
   if ('Notification' in window && Notification.permission === 'default') {
     document.body.addEventListener('click', () => Notification.requestPermission(), { once: true });
   }
 
-  // atualiza "há X min" e a virada do dia sem precisar de evento novo
+  // atualiza streaks/virada de dia sem depender de evento novo
   setInterval(renderBoard, 60000);
 
   loadInitial()

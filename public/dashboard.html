@@ -3,69 +3,113 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Placar de Reuniões</title>
+  <title>Dashboard de Reuniões</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <header class="top">
-    <div class="brand">
-      <div class="eyebrow">Placar ao vivo</div>
-      <h1 id="account-label">Reuniões</h1>
-    </div>
-    <span class="pill"><span class="dot" id="conn-dot"></span><span id="conn-text">conectando…</span></span>
-    <span class="spacer"></span>
-    <button class="btn ghost" id="sound-btn">🔇 Ativar som</button>
-    <button class="btn ghost" id="test-btn">Testar alerta</button>
-    <form method="post" action="/logout" id="logout-form">
-      <button class="btn ghost" type="submit">Sair</button>
-    </form>
-  </header>
+  <div class="frame">
 
-  <main>
-    <div class="controls">
-      <div class="seg" id="period-seg" role="tablist" aria-label="Período">
-        <button data-period="today" class="on">Hoje</button>
-        <button data-period="7d">7 dias</button>
-        <button data-period="30d">30 dias</button>
+    <header class="top">
+      <div class="trophy-art">
+        <span class="laurel">🏆</span>
       </div>
-      <div class="stats">
-        <div class="stat panel">
-          <span class="label">Reuniões no período</span>
-          <span class="value accent" id="stat-total">0</span>
-        </div>
-        <div class="stat panel">
-          <span class="label">Líder</span>
-          <span class="value" id="stat-leader">—</span>
-          <span class="sub" id="stat-leader-sub"></span>
-        </div>
-        <div class="stat panel">
-          <span class="label">Última reunião</span>
-          <span class="value" id="stat-last">—</span>
-          <span class="sub" id="stat-last-sub"></span>
-        </div>
+      <div class="brand">
+        <h1>Dashboard de Reuniões</h1>
+        <div class="subtitle">Agendadas e Realizadas</div>
+        <div class="tagline">Mais encontros. Mais negócios.</div>
       </div>
-    </div>
-
-    <section class="board">
-      <div class="panel">
-        <div class="podium" id="podium"></div>
-        <div class="ranking">
-          <div class="rank-head">
-            <h2>Ranking de corretores</h2>
-            <span class="muted" id="enrich-note"></span>
+      <div class="spacer"></div>
+      <div class="head-right">
+        <div class="chips-row">
+          <span class="chip account-chip" id="account-label">—</span>
+          <span class="chip"><span class="ico">📅</span><span id="date-chip">—</span></span>
+          <span class="chip"><span class="ico">🕐</span><span id="time-chip">—</span></span>
+          <span class="chip conn"><span class="dot" id="conn-dot"></span><span id="conn-text">…</span></span>
+          <button id="sound-btn" class="mini" title="Som do alerta">🔇</button>
+          <button id="test-btn" class="mini" title="Testar alerta">🔔</button>
+          <form method="post" action="/logout" id="logout-form"><button class="mini" title="Sair">⏻</button></form>
+        </div>
+        <div class="kpi-cards">
+          <div class="kpi">
+            <span class="kpi-ico">🎯</span>
+            <div class="kpi-txt">
+              <span class="kpi-label">Meta</span>
+              <span class="kpi-value"><b id="meta-time">20</b> reuniões</span>
+            </div>
+            <svg class="ring" viewBox="0 0 60 60" aria-hidden="true">
+              <circle class="ring-bg" cx="30" cy="30" r="24"/>
+              <circle class="ring-fg" id="ring-fg" cx="30" cy="30" r="24"/>
+            </svg>
+            <span class="ring-label" id="ring-label">0%</span>
           </div>
-          <ul class="rank-list" id="rank-list"></ul>
-          <div class="empty" id="rank-empty" hidden>Nenhuma reunião no período ainda. O placar abre com a primeira! 🏁</div>
+          <div class="kpi">
+            <span class="kpi-ico flame">🔥</span>
+            <div class="kpi-txt">
+              <span class="kpi-label">Time em ação</span>
+              <span class="kpi-value"><b id="kpi-total">0</b></span>
+              <span class="kpi-sub">reuniões totais</span>
+            </div>
+          </div>
+        </div>
+        <div class="legend">
+          <span><i class="dot-blue"></i> Reuniões Agendadas</span>
+          <span><i class="dot-green"></i> Reuniões Realizadas</span>
         </div>
       </div>
-    </section>
+    </header>
 
-    <aside class="feed panel">
-      <div class="feed-head">◉ Atividade ao vivo</div>
-      <ul class="feed-list" id="feed"></ul>
-      <div class="empty" id="feed-empty" hidden>Nenhum evento recebido ainda.<br>Configure o webhook na Kommo para <code>/webhook/kommo</code>.</div>
-    </aside>
-  </main>
+    <main>
+      <section class="board panel">
+        <div class="thead">
+          <span class="th-pos">Pos.</span>
+          <span class="th-name">Corretor</span>
+          <div class="th-axis" id="axis"></div>
+          <span class="th-meta">Meta <b id="meta-corretor">25</b> 🏆</span>
+          <span class="th-streak"></span>
+        </div>
+        <ul class="rows" id="rank-list"></ul>
+        <div class="empty" id="rank-empty" hidden>Nenhuma reunião registrada ainda. O placar abre com a primeira! 🏁</div>
+      </section>
+
+      <aside class="side">
+        <div class="panel side-card bora">
+          <div class="rocket">🚀</div>
+          <div class="bora-txt">
+            <div class="bora-title" id="bora-title">Bora!</div>
+            <div class="bora-sub" id="bora-sub">O time está batendo metas!</div>
+          </div>
+        </div>
+
+        <div class="panel side-card resume">
+          <div class="resume-head"><span class="ico">👥</span> Resumo do Time</div>
+          <div class="resume-row"><span class="ico">📅</span><span>Reuniões Agendadas</span><b id="sum-agendadas">0</b></div>
+          <div class="resume-row"><span class="ico">✅</span><span>Reuniões Realizadas</span><b class="green" id="sum-realizadas">0</b></div>
+          <div class="resume-row"><span class="ico">🎯</span><span>Taxa de Conversão</span><b class="blue" id="sum-conv">0%</b></div>
+        </div>
+
+        <div class="panel side-card podium-card">
+          <div class="podium-art">
+            <div class="pod-trophy">🏆</div>
+            <div class="pod-steps">
+              <div class="pod p2">2</div>
+              <div class="pod p1">1</div>
+              <div class="pod p3">3</div>
+            </div>
+          </div>
+          <div class="quote">Grandes resultados nascem de <b>grandes conversas</b>.</div>
+        </div>
+      </aside>
+    </main>
+
+    <footer class="foot">
+      <div class="foot-chips">
+        <span class="foot-main">🏆 Time campeão</span>
+        <span>Foco</span>
+        <span>Consistência</span>
+        <span>Resultados</span>
+      </div>
+    </footer>
+  </div>
 
   <div id="alert-overlay">
     <div class="alert-box">

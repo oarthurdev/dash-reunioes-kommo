@@ -149,6 +149,8 @@ app.get('/api/meta', requireAuth, async (req, res) => {
     label: req.account.label,
     enriched: client.enabled,
     meetingStatusIds: req.account.meetingStatusIds,
+    metaCorretor: req.account.metaCorretor,
+    metaTime: req.account.metaTime,
     // Corretores da conta (para o ranking listar também quem está zerado).
     users: client.cache.users ? [...client.cache.users].map(([id, name]) => ({ id, name })) : [],
   });
@@ -282,6 +284,7 @@ async function processWebhook(accountKey, body) {
       responsibleUserId: num(lead.responsible_user_id),
       responsibleUserName: client.userName(lead.responsible_user_id),
       isMeeting: client.isMeetingStatus(statusId),
+      isMeetingDone: client.isDoneStatus(statusId),
     };
 
     store.add(event);

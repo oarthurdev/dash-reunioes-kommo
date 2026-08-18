@@ -44,6 +44,12 @@ function buildAccount(key) {
     // IDs de status que disparam o alerta de reunião. Se vazio e houver token,
     // o servidor detecta automaticamente os status cujo nome contém "reuni".
     meetingStatusIds: parseIdList(process.env[`${upper}_MEETING_STATUS_IDS`]),
+    // IDs de status de reunião REALIZADA (barra verde do placar). Se vazio e
+    // houver token, detecta status cujo nome contém "reuni" + "realizad".
+    doneStatusIds: parseIdList(process.env[`${upper}_DONE_STATUS_IDS`]),
+    // Metas exibidas no placar (por corretor e do time), com fallback global.
+    metaCorretor: parseInt(process.env[`${upper}_META_CORRETOR`], 10) || parseInt(process.env.META_CORRETOR, 10) || 25,
+    metaTime: parseInt(process.env[`${upper}_META_TIME`], 10) || parseInt(process.env.META_TIME, 10) || 20,
     // Credenciais de login da conta (até 3 usuários).
     logins: buildLogins(upper),
   };
