@@ -14,6 +14,7 @@
 
   const events = [];
   const seen = new Set();
+  let appVersion = null;
   let knownUsers = [];
   let metaCorretor = 25;
   let metaTime = 20;
@@ -559,6 +560,7 @@
     ]);
     $('account-label').textContent = meta.label;
     document.title = `${meta.label} — Dashboard de Reuniões`;
+    appVersion = meta.version || null;
     knownUsers = meta.users || [];
     metaCorretor = meta.metaCorretor || 25;
     metaTime = meta.metaTime || 20;
@@ -601,6 +603,20 @@
     updateMonthNav();
     renderBoard();
   }, 60000);
+
+  // Telas que ficam abertas por dias (TV) nunca recarregam sozinhas e podem
+  // rodar uma versão antiga do placar. A cada 5 min compara a versão do
+  // servidor e recarrega a página quando o sistema for atualizado.
+  setInterval(async () => {
+    try {
+      const r = await fetch(api('/api/meta'));
+      if (!r.ok) return;
+      const meta = await r.json();
+      if (appVersion && meta.version && meta.version !== appVersion) {
+        location.reload();
+      }
+    } catch {}
+  }, 5 * 60 * 1000);
 
   loadInitial()
     .then(connectSSE)

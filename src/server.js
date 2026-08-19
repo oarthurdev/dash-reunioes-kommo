@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const express = require('express');
 
 const config = require('./config');
+const APP_VERSION = require('../package.json').version;
 const { EventStore, MonthlyStats } = require('./store');
 const { KommoClient } = require('./kommo');
 const auth = require('./auth');
@@ -196,6 +197,7 @@ app.get('/api/meta', requireAuth, async (req, res) => {
   const client = kommoClients.get(req.accountKey);
   await client.refreshIfStale();
   res.json({
+    version: APP_VERSION,
     account: req.accountKey,
     label: req.account.label,
     enriched: client.enabled,
