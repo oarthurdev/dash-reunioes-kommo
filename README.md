@@ -74,6 +74,16 @@ curl -X POST "http://localhost:3000/webhook/kommo" -H "Content-Type: application
 
 Ou clique em **"Testar alerta"** no próprio dashboard.
 
+## Exibição em TV
+
+O dashboard foi feito para ficar aberto em tela cheia numa TV (F11 no navegador):
+
+- **Escala automática**: em telas a partir de 1024px de largura, todo o layout escala com a resolução (1080p, 4K, 720p ficam idênticos) e ajusta a altura para **preencher exatamente a tela, sem rolagem**. Com poucos corretores as linhas crescem; com muitos, entra um modo compacto (linhas mais baixas, texto no mesmo tamanho) antes de reduzir a página inteira.
+- **Alerta** de reunião tem tamanho próprio, proporcional à tela, independente de quantos corretores há no placar.
+- O ponteiro do mouse some após 5s parado.
+- A tela verifica a versão do sistema a cada 5 min e **recarrega sozinha** quando o servidor é atualizado — não precisa mexer na TV após um deploy.
+- Em celulares/tablets (abaixo de 1024px) vale o layout responsivo normal, com rolagem.
+
 ## Observações
 
 - **Som**: navegadores bloqueiam áudio sem interação — clique em **"Ativar som"** uma vez em cada máquina/aba que ficará monitorando (a preferência fica salva).
