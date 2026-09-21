@@ -487,25 +487,18 @@
   // o conteúdo preencher exatamente a altura da tela, sem rolagem. Parte da
   // escala por largura (100vw/120, ver style.css) e corrige pela altura, entre
   // 40% e 130% dela — assim poucos corretores enchem a tela e muitos cabem.
+  // Se para caber fosse preciso encolher mais de 15%, liga o modo compacto
+  // (linhas mais baixas) e refaz o ajuste, preservando o tamanho do texto.
   // ---------------------------------------------------------------------
   const frame = document.querySelector('.frame');
   let fitRaf = null;
 
-  function fitToScreen() {
-    fitRaf = null;
+  // Escala que faz o conteúdo caber na altura (dentro de [min, max]).
+  // A altura é ~linear na escala: 2-3 iterações convergem.
+  function scaleToHeight(base, min, max) {
     const html = document.documentElement;
-    if (window.innerWidth < 1024) {
-      html.style.fontSize = '';
-      return;
-    }
-    const base = window.innerWidth / 120;
-    const min = base * 0.4;
-    const max = base * 1.3;
-    let fs = parseFloat(html.style.fontSize) || base;
-    fs = Math.max(min, Math.min(max, fs));
+    let fs = base;
     html.style.fontSize = `${fs}px`;
-    frame.classList.add('measuring');
-    // altura do conteúdo é ~linear na escala: 2-3 iterações convergem
     for (let i = 0; i < 4; i++) {
       const h = frame.getBoundingClientRect().height;
       if (!h) break;
@@ -513,6 +506,33 @@
       if (Math.abs(target - fs) < 0.05) break;
       fs = target;
       html.style.fontSize = `${fs}px`;
+    }
+    // garante que não sobra nem 1px de rolagem
+    const h = frame.getBoundingClientRect().height;
+    if (h > window.innerHeight && fs > min) {
+      fs = Math.max(min, fs * (window.innerHeight / h) * 0.995);
+      html.style.fontSize = `${fs}px`;
+    }
+    return fs;
+  }
+
+  function fitToScreen() {
+    fitRaf = null;
+    const html = document.documentElement;
+    if (window.innerWidth < 1024) {
+      html.style.fontSize = '';
+      html.classList.remove('compact');
+      return;
+    }
+    const base = window.innerWidth / 120;
+    const min = base * 0.4;
+    const max = base * 1.3;
+    frame.classList.add('measuring');
+    html.classList.remove('compact');
+    let fs = scaleToHeight(base, min, max);
+    if (fs < base * 0.85) {
+      html.classList.add('compact');
+      fs = scaleToHeight(base, min, max);
     }
     frame.classList.remove('measuring');
   }
