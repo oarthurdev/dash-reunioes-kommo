@@ -10,6 +10,44 @@ function parseIdList(value) {
     .filter((n) => Number.isFinite(n));
 }
 
+function normalizeName(text) {
+  return String(text || '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+// Lista de corretores ocultos: nomes (ou só o primeiro nome) e/ou IDs de
+// usuário da Kommo, separados por vírgula. Comparação sem acento/maiúsculas.
+function parseHiddenList(value) {
+  return String(value)
+    .split(',')
+    .map((s) => normalizeName(s))
+    .filter(Boolean);
+}
+
+// Corretores que saíram do time e não devem mais aparecer no placar. Pode ser
+// sobrescrito por HIDDEN_BROKERS (global) ou <CONTA>_HIDDEN_BROKERS no .env;
+// valor vazio ("") reexibe todo mundo.
+const DEFAULT_HIDDEN_BROKERS = 'Tayane,Ricardo,Patricia';
+
+// Um corretor é oculto se o ID bater com um termo numérico da lista ou se o
+// nome normalizado for igual ao termo, tiver uma palavra igual ao termo, ou
+// contiver o termo quando ele tem espaço (ex.: "patricia souza").
+function isHiddenBroker(account, userId, userName) {
+  const terms = account?.hiddenBrokers || [];
+  if (terms.length === 0) return false;
+  const id = userId != null ? String(userId) : null;
+  const name = normalizeName(userName);
+  const words = name ? name.split(/\s+/) : [];
+  return terms.some((t) => {
+    if (/^\d+$/.test(t)) return id === t;
+    if (!name) return false;
+    return name === t || words.includes(t) || (t.includes(' ') && name.includes(t));
+  });
+}
+
 // Contas suportadas. Cada subdomínio do dashboard (dicasa.x.com, mazi.x.com)
 // corresponde a uma conta Kommo.
 const ACCOUNT_KEYS = ['dicasa', 'mazi'];
@@ -50,6 +88,10 @@ function buildAccount(key) {
     // Metas exibidas no placar (por corretor e do time), com fallback global.
     metaCorretor: parseInt(process.env[`${upper}_META_CORRETOR`], 10) || parseInt(process.env.META_CORRETOR, 10) || 25,
     metaTime: parseInt(process.env[`${upper}_META_TIME`], 10) || parseInt(process.env.META_TIME, 10) || 20,
+    // Corretores ocultos do placar (ver DEFAULT_HIDDEN_BROKERS).
+    hiddenBrokers: parseHiddenList(
+      process.env[`${upper}_HIDDEN_BROKERS`] ?? process.env.HIDDEN_BROKERS ?? DEFAULT_HIDDEN_BROKERS
+    ),
     // Credenciais de login da conta (até 3 usuários).
     logins: buildLogins(upper),
   };
@@ -80,5 +122,7 @@ for (const acc of accounts.values()) {
     );
   }
 }
+
+config.isHiddenBroker = isHiddenBroker;
 
 module.exports = config;

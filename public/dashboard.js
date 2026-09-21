@@ -479,7 +479,62 @@
       ? 'Nenhuma reunião registrada ainda. O placar abre com a primeira! 🏁'
       : 'Nenhuma reunião registrada nesse mês.';
     $('rank-empty').hidden = brokers.length > 0;
+    scheduleFit();
   }
+
+  // ---------------------------------------------------------------------
+  // Modo TV: ajusta a escala (font-size do <html>, base de todos os rem) para
+  // o conteúdo preencher exatamente a altura da tela, sem rolagem. Parte da
+  // escala por largura (100vw/120, ver style.css) e corrige pela altura, entre
+  // 40% e 130% dela — assim poucos corretores enchem a tela e muitos cabem.
+  // ---------------------------------------------------------------------
+  const frame = document.querySelector('.frame');
+  let fitRaf = null;
+
+  function fitToScreen() {
+    fitRaf = null;
+    const html = document.documentElement;
+    if (window.innerWidth < 1024) {
+      html.style.fontSize = '';
+      return;
+    }
+    const base = window.innerWidth / 120;
+    const min = base * 0.4;
+    const max = base * 1.3;
+    let fs = parseFloat(html.style.fontSize) || base;
+    fs = Math.max(min, Math.min(max, fs));
+    html.style.fontSize = `${fs}px`;
+    frame.classList.add('measuring');
+    // altura do conteúdo é ~linear na escala: 2-3 iterações convergem
+    for (let i = 0; i < 4; i++) {
+      const h = frame.getBoundingClientRect().height;
+      if (!h) break;
+      const target = Math.max(min, Math.min(max, fs * (window.innerHeight / h)));
+      if (Math.abs(target - fs) < 0.05) break;
+      fs = target;
+      html.style.fontSize = `${fs}px`;
+    }
+    frame.classList.remove('measuring');
+  }
+
+  function scheduleFit() {
+    if (fitRaf) return;
+    fitRaf = requestAnimationFrame(fitToScreen);
+  }
+
+  window.addEventListener('resize', scheduleFit);
+  if (document.fonts?.ready) document.fonts.ready.then(scheduleFit);
+  scheduleFit();
+
+  // Esconde o ponteiro do mouse na TV depois de 5s parado.
+  let idleTimer = null;
+  function wakeCursor() {
+    document.documentElement.classList.remove('idle');
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => document.documentElement.classList.add('idle'), 5000);
+  }
+  window.addEventListener('mousemove', wakeCursor, { passive: true });
+  wakeCursor();
 
   // ---------------------------------------------------------------------
   // Relógio do cabeçalho

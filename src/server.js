@@ -43,6 +43,13 @@ function currentYm() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
+// Eventos de corretores ocultos ficam gravados, mas não chegam ao dashboard
+// (nem no placar, nem no alerta). Eventos de teste nunca são ocultados.
+function isHiddenEvent(accountKey, ev) {
+  if (ev.test) return false;
+  return config.isHiddenBroker(config.accounts.get(accountKey), ev.responsibleUserId, ev.responsibleUserName);
+}
+
 // ---------------------------------------------------------------------------
 // Resolução de conta por subdomínio (dicasa.x.com, mazi.x.com); fallback
 // ?account= para desenvolvimento local.
@@ -204,8 +211,13 @@ app.get('/api/meta', requireAuth, async (req, res) => {
     meetingStatusIds: req.account.meetingStatusIds,
     metaCorretor: req.account.metaCorretor,
     metaTime: req.account.metaTime,
-    // Corretores da conta (para o ranking listar também quem está zerado).
-    users: client.cache.users ? [...client.cache.users].map(([id, name]) => ({ id, name })) : [],
+    // Corretores da conta (para o ranking listar também quem está zerado),
+    // sem os ocultos.
+    users: client.cache.users
+      ? [...client.cache.users]
+          .filter(([id, name]) => !config.isHiddenBroker(req.account, id, name))
+          .map(([id, name]) => ({ id, name }))
+      : [],
   });
 });
 
@@ -224,9 +236,11 @@ app.get('/api/ranking', requireAuth, (req, res) => {
   const brokers = [];
   if (month) {
     for (const [key, b] of Object.entries(month.brokers)) {
+      const name = b.name || client.userName(key);
+      if (config.isHiddenBroker(req.account, key === 'none' ? null : key, name)) continue;
       brokers.push({
         key,
-        name: b.name || client.userName(key) || (key === 'none' ? 'Sem corretor' : `Corretor #${key}`),
+        name: name || (key === 'none' ? 'Sem corretor' : `Corretor #${key}`),
         agendadas: b.agendadas,
         realizadas: b.realizadas,
       });
@@ -237,7 +251,8 @@ app.get('/api/ranking', requireAuth, (req, res) => {
 
 app.get('/api/events', requireAuth, (req, res) => {
   const limit = Math.min(parseInt(req.query.limit, 10) || 100, config.maxEventsPerAccount);
-  res.json({ events: stores.get(req.accountKey).recent(limit) });
+  const events = stores.get(req.accountKey).recent(limit).filter((ev) => !isHiddenEvent(req.accountKey, ev));
+  res.json({ events });
 });
 
 // Simula um evento de reunião (para testar som/alerta sem mexer na Kommo).
@@ -289,6 +304,7 @@ app.get('/events', requireAuth, (req, res) => {
 });
 
 function broadcast(accountKey, event) {
+  if (isHiddenEvent(accountKey, event)) return;
   const payload = `data: ${JSON.stringify(event)}\n\n`;
   for (const res of sseClients.get(accountKey)) {
     res.write(payload);
