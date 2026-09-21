@@ -214,7 +214,7 @@
   function streakDays(key) {
     const days = new Set();
     for (const ev of events) {
-      if ((isAgendada(ev) || isRealizada(ev)) && brokerKey(ev) === key) days.add(dayStr(ev.ts));
+      if (!ev.test && (isAgendada(ev) || isRealizada(ev)) && brokerKey(ev) === key) days.add(dayStr(ev.ts));
     }
     let streak = 0;
     const d = new Date();
@@ -236,7 +236,8 @@
     let totAgendadas = 0;
     let totRealizadas = 0;
     for (const ev of events) {
-      if (ev.ts < start) continue;
+      // eventos de teste (botão 🔔) só disparam o alerta; não pontuam
+      if (ev.test || ev.ts < start) continue;
       const ag = isAgendada(ev);
       const re = isRealizada(ev);
       if (!ag && !re) continue;
@@ -262,7 +263,7 @@
     start.setHours(0, 0, 0, 0);
     let n = 0;
     for (const ev of events) {
-      if (isAgendada(ev) && ev.ts >= start.getTime() && brokerKey(ev) === key) n++;
+      if (!ev.test && isAgendada(ev) && ev.ts >= start.getTime() && brokerKey(ev) === key) n++;
     }
     return n;
   }
@@ -596,9 +597,11 @@
     av.textContent = initials(ev.responsibleUserName || name);
 
     const n = countAgendadasHoje(brokerKey(ev));
-    $('alert-tally').textContent = ev.responsibleUserName
-      ? `${n}ª reunião de ${ev.responsibleUserName.split(/\s+/)[0]} hoje 🔥`
-      : '';
+    $('alert-tally').textContent = ev.test
+      ? 'Alerta de teste — não entra no placar'
+      : ev.responsibleUserName
+        ? `${n}ª reunião de ${ev.responsibleUserName.split(/\s+/)[0]} hoje 🔥`
+        : '';
 
     $('alert-overlay').classList.add('show');
     startSiren();
@@ -617,7 +620,7 @@
     seen.add(ev.id);
     events.unshift(ev);
     events.sort((a, b) => b.ts - a.ts);
-    if (ev.isMeeting || isRealizada(ev)) {
+    if (!ev.test && (ev.isMeeting || isRealizada(ev))) {
       lastBump = brokerKey(ev);
       // evento novo invalida o cache do mês correspondente
       const d = new Date(ev.ts);

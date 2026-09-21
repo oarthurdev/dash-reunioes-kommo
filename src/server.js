@@ -251,7 +251,11 @@ app.get('/api/ranking', requireAuth, (req, res) => {
 
 app.get('/api/events', requireAuth, (req, res) => {
   const limit = Math.min(parseInt(req.query.limit, 10) || 100, config.maxEventsPerAccount);
-  const events = stores.get(req.accountKey).recent(limit).filter((ev) => !isHiddenEvent(req.accountKey, ev));
+  // eventos de teste só servem para o alerta ao vivo; não voltam no reload
+  const events = stores
+    .get(req.accountKey)
+    .recent(limit)
+    .filter((ev) => !ev.test && !isHiddenEvent(req.accountKey, ev));
   res.json({ events });
 });
 
